@@ -1,10 +1,12 @@
 from contextlib import asynccontextmanager
 from typing import Literal
-
+from sqlalchemy.orm import Session
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field
 import models
 from database import Base,engine
+from sqlalchemy import select
+
 
 @asynccontextmanager
 async def lifespan(app:FastAPI):
@@ -64,6 +66,10 @@ class TaskResponse(BaseModel):
         "done"
     ]
 
+    model_config = {
+        "from_attributes": True
+    }
+
 class TaskListResponse(BaseModel):
     tasks : list[TaskResponse]
 
@@ -92,23 +98,30 @@ def home():
     }
 
 
-@app.get("/tasks",response_model=TaskListResponse)
+@app.get(
+    "/tasks",
+    response_model=list[TaskResponse]
+)
 def get_tasks():
-    return {
-        "tasks": tasks
-    }
 
+    with Session(engine) as db:
+
+        tasks = db.execute(
+            select(models.Task)
+        ).scalars().all()
+
+        return tasks
 
 @app.get("/tasks/{task_id}",response_model=TaskResponse)
 def get_task(task_id: int):
-    for task in tasks:
-        if task["id"] == task_id:
-            return task
 
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Task not found"
-    )
+    with Session(engine) as db:
+        task = db.get(models.Task, task_id)
+
+        if task is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Not Found")
+
+        return task
 
 
 @app.post(
@@ -117,22 +130,18 @@ def get_task(task_id: int):
     status_code=status.HTTP_201_CREATED
 )
 def create_task(task: TaskCreate):
-    if tasks:
-        new_id = tasks[-1]["id"] + 1
-    else:
-        new_id = 1
+   with Session(engine) as db:
+       db_task = models.Task(
+           title = task.title,
+           description = task.description,
+           priority =  task.priority,
+           status = "todo"
+       )
 
-    task_data = task.model_dump()
-
-    new_task = {
-        "id": new_id,
-        **task_data,
-        "status": "todo"
-    }
-
-    tasks.append(new_task)
-
-    return new_task
+       db.add(db_task)
+       db.commit()
+       db.refresh(db_task)
+       return db_task
 
 
 @app.patch("/tasks/{task_id}")
@@ -140,34 +149,39 @@ def update_task(
     task_id: int,
     task_update: TaskUpdate
 ):
-    for task in tasks:
-        if task["id"] == task_id:
-            update_data = task_update.model_dump(
-                exclude_unset=True
-            )
+    with Session(engine) as db:
+        db_task = db.get(models.Task,task_id)
+        if db_task is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Not Found")
+        update_data = task_update.model_dump(exclude_unset=True)
 
-            for field, value in update_data.items():
-                task[field] = value
+        for fields, values in update_data.items():
+            setattr(db_task,fields,values)
+        db.commit()
+        db.refresh(db_task)
 
-            return task
-
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Task not found"
-    )
+        return db_task
 
 
 @app.delete("/tasks/{task_id}")
 def delete_task(task_id: int):
-    for task in tasks:
-        if task["id"] == task_id:
-            tasks.remove(task)
 
-            return {
-                "message": "Task deleted successfully"
-            }
+    with Session(engine) as db:
 
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Task not found"
-    )
+        db_task = db.get(
+            models.Task,
+            task_id
+        )
+
+        if db_task is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Task not found"
+            )
+
+        db.delete(db_task)
+        db.commit()
+
+        return {
+            "message": "Task deleted successfully"
+        }
