@@ -1,11 +1,17 @@
+from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field
+import models
+from database import Base,engine
 
+@asynccontextmanager
+async def lifespan(app:FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
 
-app = FastAPI()
-
+app = FastAPI(lifespan=lifespan)
 
 class TaskCreate(BaseModel):
     title: str = Field(
