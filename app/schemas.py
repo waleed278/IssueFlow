@@ -3,7 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-class UserCreate(BaseModel):
+class UserRegister(BaseModel):
     name: str = Field(
         min_length=2,
         max_length=100
@@ -12,6 +12,10 @@ class UserCreate(BaseModel):
     email: str = Field(
         min_length=5,
         max_length=255
+    )
+    password: int = Field(
+        min_length=8,
+        max_length=128
     )
 
 
@@ -24,6 +28,10 @@ class UserResponse(BaseModel):
         "from_attributes": True
     }
 
+class TokenResponse(BaseModel):
+    access_token : str
+    token_type: str
+
 
 class ProjectCreate(BaseModel):
     name: str = Field(
@@ -31,7 +39,7 @@ class ProjectCreate(BaseModel):
         max_length=150
     )
 
-    owner_id: int
+    
 
 
 class ProjectResponse(BaseModel):
