@@ -29,7 +29,7 @@ router = APIRouter(
 def register(user:schemas.UserRegister,
              db: Session = Depends(get_db)):
     existing_user = db.scalar(
-        Select(models.User).where(models.User.email==user.email)
+        select(models.User).where(models.User.email==user.email)
     )
 
     if existing_user is not None:
@@ -50,7 +50,7 @@ def register(user:schemas.UserRegister,
     return db_user
 
 
-router.post("/login",response_model=schemas.TokenResponse)
+@router.post("/login",response_model=schemas.TokenResponse)
 def login(
         form_data: OAuth2PasswordRequestForm = Depends(),
         db:Session = Depends(get_db)

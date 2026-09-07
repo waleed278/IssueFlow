@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-
+from app.services import project_service
 from app import models, schemas
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -9,6 +9,9 @@ router = APIRouter(
     prefix="/projects",
     tags=["Projects"]
 )
+
+
+
 
 @router.post(
     "",
@@ -22,17 +25,16 @@ def create_project(
         get_current_user
     )
 ):
-    db_project = models.Project(
-        name=project.name,
-        owner_id=current_user.id
+
+    return project_service.create_project(
+        db=db,
+        project_data=project,
+        owner=current_user
     )
 
-    db.add(db_project)
-    db.commit()
-    db.refresh(db_project)
 
-    return db_project
 
+   
 @router.get(
     "/{project_id}",
     response_model=schemas.ProjectResponse
@@ -54,15 +56,42 @@ def get_project(
 
     return project
 
-@router.post(
-    "/projects/{project_id}/tasks",
-    response_model=schemas.TaskResponse,
-    status_code=status.HTTP_201_CREATED
-)
-def create_task(
+
+
+@router.patch("/{project_id}", response_model=schemas.ProjectResponse)
+def update_project(
+    project_id:int,
+    project_update:schemas.ProjectUpdate,
+    db:Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+                   ):
+    project = db.get(models.Project,project_id)
+
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Project not Found")
+
+    if project.owner_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not allowed to modify this project")
+
+    update_data = project_update.model_dump(exclude_unset=True)
+
+    for field,value in update_data.items():
+        setattr(project,field,value)
+
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+
+@router.delete("/{project_id}")
+def delete_project(
     project_id: int,
-    task: schemas.TaskCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(
+        get_current_user
+    )
 ):
     project = db.get(
         models.Project,
@@ -74,6 +103,49 @@ def create_task(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found"
         )
+
+    if project.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not allowed to delete this project"
+        )
+
+    db.delete(project)
+    db.commit()
+
+    return {
+        "message": "Project deleted successfully"
+    }
+
+
+@router.post(
+    "/projects/{project_id}/tasks",
+    response_model=schemas.TaskResponse,
+    status_code=status.HTTP_201_CREATED
+)
+def create_task(
+    project_id: int,
+    task: schemas.TaskCreate,
+    db: Session = Depends(get_db),
+    current_user:models.User = Depends(get_current_user)
+):
+    project = db.get(
+        models.Project,
+        project_id
+    )
+
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found"
+        )
+
+    if project.owner_id != current_user.id:
+        raise HTTPException(
+        status_code=403,
+        detail="You cannot create tasks in this project"
+    )
+    
 
     if task.assignee_id is not None:
         assignee = db.get(

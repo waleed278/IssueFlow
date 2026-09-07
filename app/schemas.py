@@ -13,7 +13,7 @@ class UserRegister(BaseModel):
         min_length=5,
         max_length=255
     )
-    password: int = Field(
+    password: str = Field(
         min_length=8,
         max_length=128
     )
@@ -51,7 +51,12 @@ class ProjectResponse(BaseModel):
         "from_attributes": True
     }
 
-
+class ProjectUpdate(BaseModel):
+    name: str | None = Field(
+        default=None,
+        min_length=3,
+        max_length=150
+    )
 class TaskCreate(BaseModel):
     title: str = Field(
         min_length=3,
