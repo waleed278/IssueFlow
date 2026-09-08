@@ -3,12 +3,7 @@ from datetime import datetime, timedelta, timezone
 import jwt
 from jwt.exceptions import InvalidTokenError
 from pwdlib import PasswordHash
-
-
-SECRET_KEY = "replace-this-with-a-long-random-secret"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
+from app.config import settings
 
 password_hasher = PasswordHash.recommended()
 
@@ -37,7 +32,7 @@ def create_access_token(
     expires_at = (
         datetime.now(timezone.utc)
         + timedelta(
-            minutes=ACCESS_TOKEN_EXPIRE_MINUTES
+            minutes=settings.access_token_expire_minutes
         )
     )
 
@@ -48,8 +43,8 @@ def create_access_token(
 
     return jwt.encode(
         payload,
-        SECRET_KEY,
-        algorithm=ALGORITHM
+        settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm
     )
 
 def decode_access_token(
@@ -57,8 +52,8 @@ def decode_access_token(
 )->int:
     payload = jwt.decode(
         token,
-        SECRET_KEY,
-        algorithms=[ALGORITHM]
+        settings.jwt_secret_key,
+        algorithms=[settings.jwt_algorithm]
     )
     subject = payload.get("sub")
     if subject is None:

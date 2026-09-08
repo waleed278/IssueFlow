@@ -1,22 +1,17 @@
-from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 
-from app import models
-from app.database import Base, engine
-from app.routers import projects, tasks, users , auth
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
-    yield
+from app.routers import (
+    auth,
+    projects,
+    tasks,
+    users,
+)
 
 
 app = FastAPI(
-    title="IssueFlow API",
-    lifespan=lifespan
+    title="IssueFlow API"
 )
+
 
 app.include_router(auth.router)
 app.include_router(users.router)

@@ -8,6 +8,8 @@ from fastapi import (
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.exc import IntegrityError
+from app.services import auth_service
 
 from app import models , schemas
 from app.database import get_db
@@ -28,26 +30,12 @@ router = APIRouter(
 
 def register(user:schemas.UserRegister,
              db: Session = Depends(get_db)):
-    existing_user = db.scalar(
-        select(models.User).where(models.User.email==user.email)
-    )
 
-    if existing_user is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT,detail="Email already eixts")
-
-    hashed_password = hash_password(user.password)
-
-    db_user = models.User(
-        name = user.name,
-        email = user.email,
-        password_hash = hashed_password
-    )
-
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-
-    return db_user
+    return auth_service.register_user(
+        db=db,
+        user_data=user
+        )
+    
 
 
 @router.post("/login",response_model=schemas.TokenResponse)
@@ -55,18 +43,10 @@ def login(
         form_data: OAuth2PasswordRequestForm = Depends(),
         db:Session = Depends(get_db)
 ):
-    db_user = db.scalar(select(models.User).where(models.User.email==form_data.username))
-
-    if db_user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Incorrect email or password")
-
-    if not verify_password(form_data.password,db_user.password_hash):
-         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password"
-         )
-    access_token = create_access_token(
-        db_user.id
+    access_token = auth_service.authenticate_user(
+        db=db,
+        email=form_data.username,
+        password=form_data.password
     )
 
     return {
