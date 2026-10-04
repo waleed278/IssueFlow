@@ -124,3 +124,9 @@ class TaskResponse(BaseModel):
     model_config = {
         "from_attributes": True
     }
+
+class TaskPageResponse(BaseModel):
+    items: list[TaskResponse]
+    total: int
+    limit: int
+    offset: int

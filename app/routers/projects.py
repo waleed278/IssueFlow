@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status,Query
 from sqlalchemy.orm import Session
 from app.services import project_service
 from app import models, schemas
 from app.database import get_db
 from app.dependencies import get_current_user
-
+from typing import Annotated,Literal
+from app.services.task_service import list_project_tasks
 router = APIRouter(
     prefix="/projects",
     tags=["Projects"]
@@ -173,3 +174,85 @@ def create_task(
     db.refresh(db_task)
 
     return db_task
+
+
+@router.get(
+    "/projects/{project_id}/tasks",
+    response_model=schemas.TaskPageResponse
+)
+def get_project_tasks(
+    project_id: int,
+
+    status_filter: Annotated[
+        Literal[
+            "todo",
+           "in_progress",
+            "done"
+        ] | None,
+        Query(alias="status")
+    ] = None,
+
+    priority: Annotated[
+        Literal[
+            "low",
+            "medium",
+            "high"
+        ] | None,
+        Query()
+    ] = None,
+
+    search: Annotated[
+        str | None,
+        Query(
+            min_length=1,
+            max_length=100
+        )
+    ] = None,
+
+    sort_by: Annotated[
+        Literal[
+            "id",
+            "title"
+        ],
+        Query()
+    ] = "id",
+
+    sort_order: Annotated[
+        Literal[
+            "asc",
+            "desc"
+        ],
+        Query()
+    ] = "asc",
+
+    limit: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=100
+        )
+    ] = 20,
+
+    offset: Annotated[
+        int,
+        Query(ge=0)
+    ] = 0,
+
+    db: Session = Depends(get_db),
+
+    current_user: models.User = Depends(
+        get_current_user
+    ),
+):
+    return list_project_tasks(
+        db=db,
+        project_id=project_id,
+        user_id=current_user.id,
+        status_filter=status_filter,
+        priority=priority,
+        search=search,
+        limit=limit,
+        offset=offset,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )

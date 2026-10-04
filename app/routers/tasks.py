@@ -6,6 +6,7 @@ from app import models, schemas
 from app.database import get_db
 
 
+
 router = APIRouter()
 
 
@@ -120,3 +121,5 @@ def delete_task(
     return {
         "message": "Task deleted successfully"
     }
+
+
