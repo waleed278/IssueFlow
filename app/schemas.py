@@ -130,3 +130,57 @@ class TaskPageResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class UserSummary(BaseModel):
+    id: int
+    name: str
+    email: str
+
+    model_config = {
+        "from_attributes": True
+    }
+
+class ProjectSummary(BaseModel):
+    id: int
+    name: str
+
+    model_config = {
+        "from_attributes": True
+    }
+
+
+class TaskDetailResponse(BaseModel):
+    id: int
+    title: str
+    description: str | None
+    priority: Literal[
+        "low",
+        "medium",
+        "high"
+    ]
+    status: Literal[
+        "todo",
+        "in_progress",
+        "done"
+    ]
+
+    project: ProjectSummary
+    assignee: UserSummary | None
+
+    model_config = {
+        "from_attributes": True
+    }
+
+class ProjectMemberAdd(BaseModel):
+        user_id: int
+
+
+class ProjectMembershipResponse(BaseModel):
+    id:int
+    projec_id:int
+    role:Literal["owner","member"]
+    model_config = {
+        "from_attributes":True
+    }
+

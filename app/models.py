@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, String, CheckConstraint , UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import Boolean
 
@@ -44,6 +44,10 @@ class User(Base):
         back_populates="assignee"
     )
 
+    memberships: Mapped[list[ProjectMembership]] =  relationship(
+        back_populates="user"
+    )
+
 
 class Project(Base):
     __tablename__ = "projects"
@@ -69,6 +73,9 @@ class Project(Base):
     tasks: Mapped[list[Task]] = relationship(
         back_populates="project"
     )
+    memberships: Mapped[list[ProjectMembership]] =  relationship(
+            back_populates="project"
+        )
 
 
 class Task(Base):
@@ -117,6 +124,39 @@ class Task(Base):
         back_populates="assigned_tasks"
     )
 
+class ProjectMembership(Base):
+    __tablename__ =  "project_memberships"
 
+    __table_args__=(
+        UniqueConstraint(
+            "project_id","user_id",
+            name = "uq_project_membership_project_user",
+        ),
+        CheckConstraint(
+            "role IN('owner','member')",
+            name= "ck_project_membership_role",
+        ),
+    )
 
+    id: Mapped[int] = mapped_column(
+        primary_key=True
+    )
+
+    project_id:Mapped[int] = mapped_column(
+        ForeignKey("projects.id"),
+        nullable=False
+    )
+    user_id:Mapped[int] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=False,
+        index= True
+    )
+    role: Mapped[str] = mapped_column(String(20),nullable=False)
+
+    project: Mapped[Project] = relationship(
+        back_populates="memberships"
+    )
+    user: Mapped[User] = relationship(
+        back_populates="memberships"
+    )
 

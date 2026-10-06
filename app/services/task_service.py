@@ -10,7 +10,7 @@ from app.services.project_service import (
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
-
+from sqlalchemy.orm import joinedload
 
 
 

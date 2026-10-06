@@ -1,6 +1,6 @@
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
-
+from sqlalchemy import select
 from app import models, schemas
 
 
@@ -86,3 +86,110 @@ def delete_project(
 
     db.delete(project)
     db.commit()
+
+def create_project(db:Session,project_data:schemas.ProjectCreate,owner:models.User)->models.Project:
+
+    project = models.Project(
+        name = project_data.name,
+        owner_id= owner.id
+    )
+    db.add(project)
+    try:
+        db.flush()
+
+        owner_membership = models.ProjectMembership(
+            project_id = project.id,
+            user_id = owner.id,
+            role = "owner"
+        )
+
+        db.add(owner_membership)
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
+    db.refresh(project)
+    return project
+
+def get_project_or_404(
+    db: Session,
+    project_id: int,
+) -> models.Project:
+
+    project = db.get(
+        models.Project,
+        project_id,
+    )
+
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found",
+        )
+
+    return project
+
+def get_project_membership(
+    db: Session,
+    project_id: int,
+    user_id: int,
+) -> models.ProjectMembership | None:
+
+    return db.scalar(
+        select(
+            models.ProjectMembership
+        ).where(
+            models.ProjectMembership.project_id
+            == project_id,
+
+            models.ProjectMembership.user_id
+            == user_id,
+        )
+    )
+
+def require_project_member(
+    db: Session,
+    project_id: int,
+    user_id: int,
+) -> models.ProjectMembership:
+
+    get_project_or_404(
+        db=db,
+        project_id=project_id,
+    )
+
+    membership = get_project_membership(
+        db=db,
+        project_id=project_id,
+        user_id=user_id,
+    )
+
+    if membership is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this project",
+        )
+
+    return membership
+
+def require_project_owner(
+    db: Session,
+    project_id: int,
+    user_id: int,
+) -> models.ProjectMembership:
+
+    membership = require_project_member(
+        db=db,
+        project_id=project_id,
+        user_id=user_id,
+    )
+
+    if membership.role != "owner":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Project owner permission required",
+        )
+
+    return membership
+

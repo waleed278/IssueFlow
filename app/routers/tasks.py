@@ -4,8 +4,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
-
-
+from sqlalchemy.orm import joinedload
 
 router = APIRouter()
 
@@ -32,9 +31,11 @@ def get_task(
     task_id: int,
     db: Session = Depends(get_db)
 ):
-    task = db.get(
-        models.Task,
-        task_id
+    task =(
+
+        select(models.Task).options(
+            joinedload(models.Task.project),joinedload(models.Task.assignee),
+        ).where(models.Task.id==task_id)
     )
 
     if task is None:
